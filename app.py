@@ -10,11 +10,23 @@ from datetime import datetime
 from pathlib import Path
 from time import sleep
 from typing import List, Optional
+from flask_cors import CORS
 
 import requests
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_socketio import SocketIO, emit
 from werkzeug.utils import secure_filename
+app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'jalmac-moveis-secret-key-2025')
+app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
+
+# 🔥 ADICIONE ESTAS LINHAS PARA CORS
+CORS(app, origins=[
+    "https://*.vercel.app",
+    "https://*.v0.dev",
+    "http://localhost:3000",  # Para desenvolvimento
+    "http://localhost:5173"   # Para Vite/React
+])
 
 # ============================================================================
 # CONFIGURAÇÃO DO LOGGING
