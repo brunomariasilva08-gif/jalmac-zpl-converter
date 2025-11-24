@@ -54,7 +54,7 @@ CORS(app, origins=[
     "*"  # Permite todos temporariamente para teste
 ])
 
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='gevent')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
 
 
 # ============================================================================
