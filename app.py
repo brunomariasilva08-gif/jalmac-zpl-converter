@@ -3,30 +3,19 @@ Sistema de Conversão ZPL para PDF - Jalmac Móveis
 Versão PRODUÇÃO com WebSocket em Tempo Real
 Desenvolvido por: Bruno
 """
-import os  # ← Adicionar esta linha
+import os
 import logging
 import re
 from datetime import datetime
 from pathlib import Path
 from time import sleep
 from typing import List, Optional
-from flask_cors import CORS
 
 import requests
 from flask import Flask, render_template, request, jsonify, send_file
 from flask_socketio import SocketIO, emit
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
-app = Flask(__name__)
-app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'jalmac-moveis-secret-key-2025')
-app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
-
-# 🔥 ADICIONE ESTAS LINHAS PARA CORS
-CORS(app, origins=[
-    "https://*.vercel.app",
-    "https://*.v0.dev",
-    "http://localhost:3000",  # Para desenvolvimento
-    "http://localhost:5173"   # Para Vite/React
-])
 
 # ============================================================================
 # CONFIGURAÇÃO DO LOGGING
@@ -45,17 +34,17 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'jalmac-moveis-secret-key-2025')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 
-# 🔥 ADICIONE CORS PARA PERMITIR V0.DEV E OUTROS FRONTS
+# 🔥 CONFIGURAÇÃO CORS PARA PRODUÇÃO
 CORS(app, origins=[
     "https://*.vercel.app",
-    "https://*.v0.dev",
+    "https://*.v0.dev", 
     "http://localhost:3000",
     "http://localhost:5173",
-    "*"  # Permite todos temporariamente para teste
+    "*"  # Permite todos temporariamente
 ])
 
+# 🔥 CORREÇÃO CRÍTICA: async_mode='threading' para compatibilidade
 socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
-
 
 # ============================================================================
 # CONFIGURAÇÕES DO SISTEMA
@@ -482,12 +471,12 @@ if __name__ == '__main__':
     print(f"🔌 WebSocket ativado para atualizações em tempo real")
     print("=" * 70 + "\n")
 
-    # Inicia servidor com SocketIO e Eventlet
+    # Inicia servidor com SocketIO
     socketio.run(
         app,
         host='0.0.0.0',
         port=5000,
-        debug=False,  # Usar True apenas em desenvolvimento
+        debug=False,
         use_reloader=False,
         log_output=True
     )
