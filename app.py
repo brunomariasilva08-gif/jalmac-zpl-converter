@@ -6,6 +6,7 @@ Desenvolvido por: Bruno
 import os
 import logging
 import re
+import base64
 from datetime import datetime
 from pathlib import Path
 from time import sleep
@@ -16,6 +17,7 @@ from flask import Flask, render_template, request, jsonify, send_file
 from flask_socketio import SocketIO, emit
 from flask_cors import CORS
 from werkzeug.utils import secure_filename
+from PyPDF2 import PdfMerger
 
 # ============================================================================
 # CONFIGURAÇÃO DO LOGGING
@@ -34,17 +36,26 @@ app = Flask(__name__)
 app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'jalmac-moveis-secret-key-2025')
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024  # 50MB max
 
-# 🔥 CONFIGURAÇÃO CORS PARA PRODUÇÃO
-CORS(app, origins=[
-    "https://*.vercel.app",
-    "https://*.v0.dev", 
-    "http://localhost:3000",
-    "http://localhost:5173",
-    "*"  # Permite todos temporariamente
-])
+# Configuração CORS robusta
+CORS(app, resources={
+    r"/*": {
+        "origins": ["https://*.vercel.app", "https://*.v0.dev", "http://localhost:*", "*"],
+        "methods": ["GET", "POST"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
-# 🔥 CORREÇÃO CRÍTICA: async_mode='threading' para compatibilidade
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+# 🔥 CONFIGURAÇÃO OTIMIZADA PARA PRODUÇÃO
+socketio = SocketIO(
+    app,
+    cors_allowed_origins="*",
+    async_mode='threading',
+    ping_timeout=60,
+    ping_interval=25,
+    max_http_buffer_size=50 * 1024 * 1024,
+    logger=True,
+    engineio_logger=True
+)
 
 # ============================================================================
 # CONFIGURAÇÕES DO SISTEMA
@@ -255,8 +266,6 @@ class PDFConverter:
             return None
 
         try:
-            from PyPDF2 import PdfMerger
-
             # Emite status de mesclagem
             socketio.emit('progress_update', {
                 'processed': len(self.pdf_files),
@@ -349,15 +358,23 @@ def handle_disconnect():
     logger.info(f"Cliente desconectado: {request.sid}")
 
 
+@socketio.on_error_default
+def default_error_handler(e):
+    """Tratamento global de erros do SocketIO"""
+    logger.error(f"Erro no WebSocket: {e}")
+    emit('error', {'message': 'Erro interno do servidor'})
+
+
 @socketio.on('start_conversion')
 def handle_conversion(data):
     """
     Evento principal: inicia conversão de arquivos ZPL
     Recebe base64 dos arquivos via WebSocket
     """
-    try:
-        logger.info("=== Iniciando nova conversão ===")
+    session_id = request.sid
+    logger.info(f"=== Iniciando conversão para sessão {session_id} ===")
 
+    try:
         files_data = data.get('files', [])
 
         if not files_data:
@@ -376,11 +393,10 @@ def handle_conversion(data):
             content_b64 = file_data.get('content', '')
 
             # Decodifica conteúdo base64
-            import base64
             try:
                 content = base64.b64decode(content_b64).decode('utf-8', errors='ignore')
-            except:
-                logger.warning(f"Erro ao decodificar arquivo {filename}")
+            except Exception as e:
+                logger.warning(f"Erro ao decodificar arquivo {filename}: {e}")
                 continue
 
             # Extrai etiquetas
