@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conversor ZPL - Jalmac Móveis</title>
+    
+    <!-- Socket.IO Client -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --vermelho: #C62828;
+            --vermelho-escuro: #B71C1C;
+            --preto: #0A0A0A;
+            --cinza-escuro: #1A1A1A;
+            --cinza: #2E2E2E;
+            --cinza-claro: #505050;
+            --branco: #FFFFFF;
+        }
+
+        body {
+            font-family: 'Segoe UI', system-ui, sans-serif;
+            background: linear-gradient(135deg, var(--preto) 0%, var(--cinza-escuro) 100%);
+            color: var(--branco);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            flex: 1;
+        }
+
+        /* Header com Logo */
+        header {
+            text-align: center;
+            margin-bottom: 50px;
+            animation: fadeIn 0.8s ease;
+        }
+
+        .logo-container {
+            margin-bottom: 30px;
+        }
+
+        .logo {
+            max-width: 400px;
+            width: 100%;
+            height: auto;
+            filter: drop-shadow(0 10px 30px rgba(198, 40, 40, 0.4));
+        }
+
+        h1 {
+            font-size: 2.5rem;
+            margin: 20px 0 10px;
+            background: linear-gradient(135deg, var(--vermelho) 0%, #FF5252 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            color: var(--cinza-claro);
+            font-size: 1.1rem;
+        }
+
+        /* Card Principal */
+        .card {
+            background: var(--cinza);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--cinza-claro);
+            animation: slideUp 0.8s ease;
+        }
+
+        /* Upload Area */
+        .upload-area {
+            border: 3px dashed var(--cinza-claro);
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: var(--cinza-escuro);
+        }
+
+        .upload-area:hover {
+            border-color: var(--vermelho);
+            background: rgba(198, 40, 40, 0.05);
+            transform: scale(1.02);
+        }
+
+        .upload-area.dragover {
+            border-color: var(--vermelho);
+            background: rgba(198, 40, 40, 0.1);
+            transform: scale(1.05);
+        }
+
+        .upload-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+        }
+
+        input[type="file"] {
+            display: none;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--vermelho) 0%, var(--vermelho-escuro) 100%);
+            color: var(--branco);
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 20px rgba(198, 40, 40, 0.4);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(198, 40, 40, 0.6);
+        }
+
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* File List */
+        .file-list {
+            margin-top: 30px;
+            display: none;
+        }
+
+        .file-item {
+            background: var(--cinza-escuro);
+            padding: 15px 20px;
+            border-radius: 10px;
+            margin: 10px 0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-left: 4px solid var(--vermelho);
+            animation: slideIn 0.3s ease;
+        }
+
+        .file-name {
+            font-weight: 600;
+        }
+
+        .file-size {
+            color: var(--cinza-claro);
+            font-size: 0.9rem;
+        }
+
+        .remove-btn {
+            background: transparent;
+            color: var(--vermelho);
+            border: 2px solid var(--vermelho);
+            padding: 5px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .remove-btn:hover {
+            background: var(--vermelho);
+            color: var(--branco);
+        }
+
+        /* Progress Section */
+        .progress-section {
+            margin-top: 40px;
+            display: none;
+        }
+
+        .progress-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .progress-status {
+            font-size: 1.1rem;
+            color: var(--vermelho);
+            font-weight: 600;
+        }
+
+        .progress-counter {
+            font-size: 1rem;
+            color: var(--cinza-claro);
+        }
+
+        .progress-time {
+            color: var(--cinza-claro);
+            font-size: 0.95rem;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 40px;
+            background: var(--cinza-escuro);
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.5);
+            position: relative;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, var(--vermelho) 0%, #FF5252 50%, var(--vermelho) 100%);
+            background-size: 200% 100%;
+            width: 0%;
+            transition: width 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 1.1rem;
+            animation: shimmer 2s infinite;
+            box-shadow: 0 0 20px rgba(198, 40, 40, 0.6);
+        }
+
+        @keyframes shimmer {
+            0% { background-position: 200% 0; }
+            100% { background-position: -200% 0; }
+        }
+
+        /* Progress Steps */
+        .progress-steps {
+            margin-top: 30px;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }
+
+        .step {
+            background: var(--cinza-escuro);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            border: 2px solid var(--cinza-claro);
+            transition: all 0.3s ease;
+        }
+
+        .step.active {
+            border-color: var(--vermelho);
+            background: rgba(198, 40, 40, 0.1);
+        }
+
+        .step.completed {
+            border-color: #4CAF50;
+            background: rgba(76, 175, 80, 0.1);
+        }
+
+        .step-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .step-label {
+            font-size: 0.9rem;
+            color: var(--cinza-claro);
+        }
+
+        .step.active .step-label {
+            color: var(--branco);
+        }
+
+        .step.completed .step-label {
+            color: #4CAF50;
+        }
+
+        /* Success Message */
+        .success-message {
+            display: none;
+            text-align: center;
+            padding: 40px;
+            background: var(--cinza-escuro);
+            border-radius: 15px;
+            border: 2px solid #4CAF50;
+            margin-top: 30px;
+            animation: scaleIn 0.5s ease;
+        }
+
+        .success-icon {
+            font-size: 5rem;
+            margin-bottom: 20px;
+        }
+
+        .success-message h3 {
+            color: #4CAF50;
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+
+        .success-details {
+            color: var(--cinza-claro);
+            margin: 20px 0;
+            line-height: 1.8;
+        }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 30px;
+            background: var(--preto);
+            margin-top: 50px;
+            border-top: 2px solid var(--vermelho);
+        }
+
+        .signature {
+            color: var(--cinza-claro);
+            font-size: 1rem;
+        }
+
+        .signature strong {
+            color: var(--vermelho);
+            font-weight: 600;
+        }
+
+        /* Animations */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes scaleIn {
+            from { transform: scale(0.9); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container {
+                padding: 20px 15px;
+            }
+
+            h1 {
+                font-size: 2rem;
+            }
+
+            .card {
+                padding: 25px 20px;
+            }
+
+            .logo {
+                max-width: 280px;
+            }
+
+            .file-item {
+                flex-direction: column;
+                gap: 15px;
+                align-items: flex-start;
+            }
+
+            .progress-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .progress-steps {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="logo-container">
+                <!-- Logo Jalmac Móveis EXATA -->
+                <img src="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 900 400'%3E%3C!-- Círculo vermelho com silhueta J --%3E%3Ccircle cx='200' cy='200' r='150' fill='%23C62828'/%3E%3Cpath d='M 200 80 Q 280 120 280 200 Q 280 280 200 320 L 200 200 Q 240 200 240 160 L 200 80 Z' fill='%23FFFFFF' opacity='0.4'/%3E%3C!-- Texto MÓVEIS --%3E%3Ctext x='380' y='170' font-family='Arial,sans-serif' font-size='42' fill='%23999999' letter-spacing='6'%3EMÓVEIS%3C/text%3E%3C!-- Texto Jalmac --%3E%3Ctext x='380' y='280' font-family='Arial,sans-serif' font-size='140' font-weight='bold' fill='%23000000'%3EJalmac%3C/text%3E%3C/svg%3E" alt="Jalmac Móveis" class="logo">
+            </div>
+            <h1>Conversor ZPL para PDF</h1>
+            <p class="subtitle">Sistema de conversão de etiquetas</p>
+        </header>
+
+        <main>
+            <div class="card">
+                <!-- Upload Area -->
+                <div class="upload-area" id="uploadArea">
+                    <div class="upload-icon">📦</div>
+                    <p style="font-size: 1.3rem; margin-bottom: 10px; font-weight: 600;">Arraste seus arquivos aqui</p>
+                    <p style="color: var(--cinza-claro); margin-bottom: 20px;">Suporta arquivos .ZPL e .TXT</p>
+                    <button class="btn" onclick="document.getElementById('fileInput').click()">
+                        Selecionar Arquivos
+                    </button>
+                    <input type="file" id="fileInput" accept=".zpl,.txt" multiple>
+                </div>
+
+                <!-- File List -->
+                <div class="file-list" id="fileList"></div>
+
+                <!-- Convert Button -->
+                <div style="text-align: center; margin-top: 30px;">
+                    <button class="btn" id="convertBtn" style="display: none;">
+                        🚀 Converter para PDF
+                    </button>
+                </div>
+
+                <!-- Progress Section -->
+                <div class="progress-section" id="progressSection">
+                    <div class="progress-header">
+                        <span class="progress-status" id="progressStatus">Aguardando...</span>
+                        <span class="progress-counter" id="progressCounter">0/0 etiquetas</span>
+                        <span class="progress-time" id="progressTime"></span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progressFill">0%</div>
+                    </div>
+                    
+                    <!-- Progress Steps -->
+                    <div class="progress-steps">
+                        <div class="step" id="step1">
+                            <div class="step-icon">📖</div>
+                            <div class="step-label">Lendo arquivos</div>
+                        </div>
+                        <div class="step" id="step2">
+                            <div class="step-icon">✅</div>
+                            <div class="step-label">Validando</div>
+                        </div>
+                        <div class="step" id="step3">
+                            <div class="step-icon">🔄</div>
+                            <div class="step-label">Convertendo</div>
+                        </div>
+                        <div class="step" id="step4">
+                            <div class="step-icon">📑</div>
+                            <div class="step-label">Mesclando</div>
+                        </div>
+                        <div class="step" id="step5">
+                            <div class="step-icon">✨</div>
+                            <div class="step-label">Finalizando</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Success Message -->
+                <div class="success-message" id="successMessage">
+                    <div class="success-icon">🎉</div>
+                    <h3>Conversão Concluída!</h3>
+                    <p style="font-size: 1.1rem;">Seu PDF foi gerado com sucesso</p>
+                    <div class="success-details" id="successDetails"></div>
+                    <button class="btn" id="downloadBtn">
+                        📥 Baixar PDF
+                    </button>
+                    <button class="btn" onclick="resetConverter()" style="margin-left: 15px; background: var(--cinza-escuro);">
+                        🔄 Converter Mais
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <footer>
+        <p class="signature">Desenvolvido por <strong>Bruno</strong> • © 2025 Jalmac Móveis</p>
+    </footer>
+
+    <script>
+        // ============================================================================
+        // CONFIGURAÇÃO WEBSOCKET
+        // ============================================================================
+        
+        const socket = io();
+        let selectedFiles = [];
+        let downloadUrl = '';
+        let startTime = 0;
+
+        // Elementos DOM
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const fileList = document.getElementById('fileList');
+        const convertBtn = document.getElementById('convertBtn');
+        const progressSection = document.getElementById('progressSection');
+        const progressFill = document.getElementById('progressFill');
+        const progressStatus = document.getElementById('progressStatus');
+        const progressCounter = document.getElementById('progressCounter');
+        const progressTime = document.getElementById('progressTime');
+        const successMessage = document.getElementById('successMessage');
+        const successDetails = document.getElementById('successDetails');
+        const downloadBtn = document.getElementById('downloadBtn');
+
+        // ============================================================================
+        // EVENTOS WEBSOCKET
+        // ============================================================================
+
+        socket.on('connected', (data) => {
+            console.log('✓ Conectado ao servidor:', data.message);
+        });
+
+        socket.on('progress_update', (data) => {
+            // Atualiza barra de progresso em tempo real
+            const { processed, total, progress, status } = data;
+            
+            progressFill.style.width = progress + '%';
+            progressFill.textContent = progress + '%';
+            progressStatus.textContent = status;
+            progressCounter.textContent = `${processed}/${total} etiquetas`;
+            
+            // Calcula tempo restante
+            if (startTime > 0) {
+                const elapsed = (Date.now() - startTime) / 1000;
+                const rate = processed / elapsed;
+                const remaining = (total - processed) / rate;
+                progressTime.textContent = `Tempo restante: ${formatTime(remaining)}`;
+            }
+            
+            // Atualiza steps
+            updateSteps(progress);
+        });
+
+        socket.on('conversion_complete', (data) => {
+            // Conversão finalizada com sucesso
+            const { filename, total_labels, file_size, download_url } = data;
+            
+            downloadUrl = download_url;
+            
+            // Esconde progresso e mostra sucesso
+            progressSection.style.display = 'none';
+            successMessage.style.display = 'block';
+            
+            const sizeKB = (file_size / 1024).toFixed(1);
+            successDetails.innerHTML = `
+                <p><strong>📁 Arquivo:</strong> ${filename}</p>
+                <p><strong>🏷️ Etiquetas:</strong> ${total_labels}</p>
+                <p><strong>💾 Tamanho:</strong> ${sizeKB} KB</p>
+            `;
+            
+            // Todas steps completadas
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById(`step${i}`).classList.add('completed');
+            }
+            
+            console.log('✓ Conversão concluída:', data);
+        });
+
+        socket.on('error', (data) => {
+            // Erro durante processamento
+            alert('❌ Erro: ' + data.message);
+            resetConverter();
+            console.error('Erro:', data);
+        });
+
+        // ============================================================================
+        // DRAG AND DROP
+        // ============================================================================
+
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            handleFiles(e.dataTransfer.files);
+        });
+
+        uploadArea.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            handleFiles(e.target.files);
+        });
+
+        // ============================================================================
+        // MANIPULAÇÃO DE ARQUIVOS
+        // ============================================================================
+
+        function handleFiles(files) {
+            selectedFiles = Array.from(files).filter(f => 
+                f.name.toLowerCase().endsWith('.zpl') || f.name.toLowerCase().endsWith('.txt')
+            );
+            
+            if (selectedFiles.length === 0) {
+                alert('⚠️ Por favor, selecione apenas arquivos .zpl ou .txt');
+                return;
+            }
+
+            if (selectedFiles.length > 20) {
+                alert('⚠️ Máximo de 20 arquivos por vez');
+                selectedFiles = selectedFiles.slice(0, 20);
+            }
+
+            renderFileList();
+        }
+
+        function renderFileList() {
+            if (selectedFiles.length === 0) {
+                fileList.style.display = 'none';
+                convertBtn.style.display = 'none';
+                return;
+            }
+
+            fileList.style.display = 'block';
+            fileList.innerHTML = '<h3 style="margin-bottom: 15px; color: var(--vermelho);">📋 Arquivos Selecionados:</h3>';
+            
+            selectedFiles.forEach((file, index) => {
+                const fileItem = document.createElement('div');
+                fileItem.className = 'file-item';
+                fileItem.innerHTML = `
+                    <div>
+                        <div class="file-name">📄 ${file.name}</div>
+                        <div class="file-size">${(file.size / 1024).toFixed(1)} KB</div>
+                    </div>
+                    <button class="remove-btn" onclick="removeFile(${index})">✖ Remover</button>
+                `;
+                fileList.appendChild(fileItem);
+            });
+
+            convertBtn.style.display = 'inline-block';
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            renderFileList();
+        }
+
+        // ============================================================================
+        // CONVERSÃO
+        // ============================================================================
+
+        convertBtn.addEventListener('click', async () => {
+            if (selectedFiles.length === 0) return;
+
+            // Esconde upload e mostra progresso
+            uploadArea.style.display = 'none';
+            fileList.style.display = 'none';
+            convertBtn.style.display = 'none';
+            progressSection.style.display = 'block';
+            
+            startTime = Date.now();
+            
+            // Converte arquivos para base64
+            const filesData = [];
+            
+            for (const file of selectedFiles) {
+                const content = await fileToBase64(file);
+                filesData.push({
+                    name: file.name,
+                    content: content
+                });
+            }
+            
+            // Envia via WebSocket
+            socket.emit('start_conversion', {
+                files: filesData
+            });
+        });
+
+        // ============================================================================
+        // FUNÇÕES AUXILIARES
+        // ============================================================================
+
+        function fileToBase64(file) {
+            return new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => {
+                    const base64 = reader.result.split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(file);
+            });
+        }
+
+        function updateSteps(progress) {
+            // Atualiza steps baseado no progresso
+            const steps = [
+                { id: 'step1', threshold: 20 },
+                { id: 'step2', threshold: 40 },
+                { id: 'step3', threshold: 80 },
+                { id: 'step4', threshold: 95 },
+                { id: 'step5', threshold: 100 }
+            ];
+            
+            steps.forEach(step => {
+                const el = document.getElementById(step.id);
+                if (progress >= step.threshold) {
+                    el.classList.remove('active');
+                    el.classList.add('completed');
+                } else if (progress >= (step.threshold - 20)) {
+                    el.classList.add('active');
+                } else {
+                    el.classList.remove('active', 'completed');
+                }
+            });
+        }
+
+        function formatTime(seconds) {
+            if (seconds < 1 || !isFinite(seconds)) return 'calculando...';
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            if (mins > 0) {
+                return `${mins}min ${secs}s`;
+            }
+            return `${secs}s`;
+        }
+
+        function resetConverter() {
+            selectedFiles = [];
+            startTime = 0;
+            uploadArea.style.display = 'block';
+            successMessage.style.display = 'none';
+            progressSection.style.display = 'none';
+            fileList.innerHTML = '';
+            progressFill.style.width = '0%';
+            progressFill.textContent = '0%';
+            
+            // Reset steps
+            for (let i = 1; i <= 5; i++) {
+                document.getElementById(`step${i}`).classList.remove('active', 'completed');
+            }
+        }
+
+        // Download
+        downloadBtn.addEventListener('click', () => {
+            window.location.href = downloadUrl;
+        });
+    </script>
+</body>
+</html>
