@@ -6,3 +6,4 @@ PyPDF2==3.0.1
 python-engineio==4.7.1
 python-socketio==5.8.0
 Werkzeug==2.3.7
+gunicorn==21.2.0
